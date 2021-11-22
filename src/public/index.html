@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movies!</title>
+</head>
+<body>
+    <!-- Container allows us to have nice padding-->
+    <div class="container"> 
+        <h1>Browse movies</h1>
+        <a href="/movies/new" class="bigbtn">Add Movie</a>
+        <div id="movieElement"></div>
+    </div>
+    <style>
+        .btns{
+            border-radius:4px;
+            cursor: pointer;
+            padding: 6px 12px;
+            background-color: #ffc0cb;
+        }
+
+        .bigbtn{
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 8px 12px;
+            background-color: #fe7f9c;
+        }
+
+        body{
+            background-color: #ADD8E6;
+            text-align: center;
+        }
+    </style>
+    <script type="text/javascript">
+        getMovies();  
+        //https://stackoverflow.com/questions/16270761/how-to-insert-a-large-block-of-html-in-javascript/16270807
+        function getMovies(){
+            fetch("api/getMovies")
+            .then(res => res.json())
+            .then(res => {
+                console.log(res);
+                for (var i=0; i<res.length;i++){
+                    var div = document.createElement('div');
+                    var div2 = document.createElement('div');
+                    div2.setAttribute('id','movieBlock');
+                    div.appendChild(div2);
+                    var div3 = document.createElement('div');
+                    div3.setAttribute('id',`${res[i]['id']}`)
+
+                    var title = document.createElement('h4');
+                    title.setAttribute('class','movieTitle');
+                    title.textContent = `${res[i]['movie_title']}`;
+                    div3.appendChild(title);
+                    var readBtn = document.createElement('button');
+                    readBtn.setAttribute('class','btns');
+                    readBtn.innerHTML = "Read";
+                    readBtn.addEventListener('click',function(){
+                        handleRead(this.parentElement);
+                    })
+                    div3.appendChild(readBtn);
+                    div2.appendChild(div3);
+
+                    //writing the <div> in
+                    document.getElementById("movieElement").appendChild(div);
+                }
+            }).catch(error => {
+                console.error(error);
+            })
+        }
+
+        /**
+         * updates user input
+         */
+
+        function updateInput(input,newVal){
+            input.setAttribute("value",newVal);
+        }
+
+        function handleRead(line){
+            console.log(line);
+            movieID = line.id;
+
+            var readBtn = line.childNodes[1];
+            readBtn.style.display = "none";
+
+            var unorderedL = document.createElement('ul');
+            const details = ['director_name','actor_1_name','actor_2_name','actor_3_name','genres','plot_keywords','movie_imdb_link'];
+            const outputDetails = ['Director', 'Actor 1', 'Actor 2', 'Actor 3', 'Genres','Keywords','Movie Link'];
+            var para = document.createElement('div');
+            para.setAttribute('id','movieDetails');
+            var editBtn = document.createElement('button');
+            editBtn.innerHTML = "Edit";
+            editBtn.addEventListener('click',function(){
+                handleEdit(this.parentElement);
+            })
+
+            var deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = "Delete";
+            deleteBtn.addEventListener('click',function(){
+                handleDelete(this.parentElement);
+            })
+
+            line.appendChild(editBtn);
+            line.appendChild(deleteBtn);
+
+            //send request to get the details of movie with that id
+            var urlFetch = "/api/"+movieID;
+            fetch(urlFetch)
+            .then(res=>res.json())
+            .then(res => {
+                console.log("Res");
+                console.log(res);
+                for (let deets=0; deets < outputDetails.length; deets ++){
+                    var newLine = document.createElement('div');
+                    var input = document.createElement("INPUT");
+
+                    var idLine = `${outputDetails[deets]}: `
+                    var textNode = document.createTextNode(idLine);
+
+                    newLine.setAttribute('id',`${outputDetails[deets]}`);
+
+                    input.setAttribute('id',`${outputDetails[deets]}`);
+                    input.setAttribute('value',`${res[details[deets]]}`);
+                    input.setAttribute('size',90);
+                    input.setAttribute('type','text');
+                    input.setAttribute('readonly','true');
+                    input.style.border = 0;
+                    input.addEventListener("change",function(){
+                        updateInput(this,this.value);
+                    });
+
+                    newLine.appendChild(textNode);
+                    newLine.appendChild(input);
+
+                    para.appendChild(newLine);
+
+                    unorderedL.appendChild(para);
+                    line.appendChild(unorderedL);
+                }
+            }).catch(error => {
+                console.error(error);
+            })
+        }
+
+        /**
+         * will delete the whole movie from json
+         */
+        function handleDelete(line){
+            console.log(line);
+
+            var data = {};
+            data["movieIdDel"] = line.id;
+            data = JSON.stringify(data);
+
+            const options = {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: data
+            };
+            fetch("/api/deleteMovie",options);
+
+            /**
+             * refresh the page
+             */
+            document.location.reload(true);
+        }
+        
+        /**
+         *  the edit function will make the text input no longer read only
+            and change the edit button to a "save" button
+            which when clicked will post to api
+         * */
+        function handleEdit(line){
+            console.log(line);
+            var movieDetails = line.childNodes[4].childNodes[0];
+            console.log("MOVIE-DETAILS");
+            console.log(movieDetails);
+            var movieID = line.id;
+            var editBtn = line.childNodes[2];
+            editBtn.style.display = "none";
+
+            /**
+             * make all inputs read only so user can edit
+             **/
+
+            for (let movieD = 0; movieD < movieDetails.childNodes.length; movieD++){
+                var inp = movieDetails.childNodes[movieD].childNodes[1];
+                inp.removeAttribute("readonly");
+                inp.style.border="1px solid black";
+            }
+
+            /**
+             * also add a textbox for title
+             */
+            var editTitleDiv = document.createElement("div");
+            var titleInp = document.createElement("INPUT");
+            titleInp.setAttribute("value",line.childNodes[0].innerHTML);
+            titleInp.addEventListener("change",function(){
+                updateInput(this,this.value);
+            });
+            var textNode = document.createTextNode("Title: ");
+            editTitleDiv.appendChild(textNode);
+            editTitleDiv.appendChild(titleInp);
+            movieDetails.appendChild(editTitleDiv);
+            console.log("New");
+            console.log(movieDetails);
+
+            var saveButton = document.createElement("button");
+            saveButton.innerHTML = "Save";
+            saveButton.addEventListener('click',function(){
+                var data = {};
+                /** update data hashmap */
+                console.log(movieDetails);
+                data["movieID"] = movieID; 
+                data["title"] = movieDetails.childNodes[7].childNodes[1].value;
+                data["director"] = movieDetails.childNodes[0].childNodes[1].value;
+                data["actor1"] = movieDetails.childNodes[1].childNodes[1].value;
+                data["actor2"] = movieDetails.childNodes[2].childNodes[1].value;
+                data["actor3"] = movieDetails.childNodes[3].childNodes[1].value;
+                data["genres"] = movieDetails.childNodes[4].childNodes[1].value;
+                data["keywords"] = movieDetails.childNodes[5].childNodes[1].value;
+                data["movieLink"] = movieDetails.childNodes[6].childNodes[1].value;
+                data = JSON.stringify(data);
+                const options = {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: data
+                };
+                fetch("/api/editMovie",options); //we send to this endpoint
+
+                /** 
+                 * now delete the title div
+                */
+                movieDetails.removeChild(editTitleDiv);
+                console.log(line);
+
+                //now reset everything
+                reset(line,this,editBtn)
+                document.location.reload(true);
+            })
+            line.appendChild(saveButton);
+        }
+
+        function reset(line,saveBtn,editBtn) {
+
+            var movieDetails = line.childNodes[4].childNodes[0];
+            console.log(movieDetails);
+
+            //remove save button
+            line.removeChild(saveBtn);
+            editBtn.style.display="initial";
+
+            //make everything read only again
+            for (let movieD = 0; movieD < movieDetails.childNodes.length; movieD++){
+                console.log(movieDetails.childNodes[movieD]);
+                var inp = movieDetails.childNodes[movieD].childNodes[1];
+                inp.setAttribute('readonly','true');
+                inp.style.border="";
+            }
+        }
+
+    </script>
+</body>
+</html>
